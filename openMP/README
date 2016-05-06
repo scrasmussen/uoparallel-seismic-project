@@ -1,0 +1,8 @@
+QUICKSTART: Type "make" to build program and "make run-wave" to run the OpenMP
+implemenetation.
+
+WAVE-MULTISTART: This is the serial version of the program.  Run the program like this:
+
+    wave-multistart velocity-241-241-51-nonConst.txt 818-FS.txt start-1-241-241-51.txt 1
+
+for a 818-point forward star and 1 starting point.
