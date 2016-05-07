@@ -24,6 +24,7 @@
 #include "../floatbox/floatbox.h"
 
 
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -39,8 +40,30 @@ struct VELOCITYBOX {
 
 
 ////////////////////////////////////////////////////////////////////////////////
+// unions
+////////////////////////////////////////////////////////////////////////////////
+
+union VBOX4BYTES {
+    int8_t c4[4];
+    int32_t i32;
+    uint32_t u32;
+    float f32; 
+};
+
+
+////////////////////////////////////////////////////////////////////////////////
 // functions
 ////////////////////////////////////////////////////////////////////////////////
+
+void
+vboxfree (
+    struct VELOCITYBOX *vbox
+)
+// releases heap memory associated with vbox
+{
+    boxfree( &(vbox->box) );
+}
+
 
 int
 vboxloadtext (
@@ -165,6 +188,145 @@ vboxloadtext (
     }
 
     fclose( infile );
+
+    // success
+    return 1;
+}
+
+
+inline extern
+union VBOX4BYTES
+vboxreversebytes (
+    const union VBOX4BYTES in
+)
+// reverses the byte-order of four bytes
+{
+    union VBOX4BYTES out;
+
+    out.c4[0] = in.c4[3];
+    out.c4[1] = in.c4[2];
+    out.c4[2] = in.c4[1];
+    out.c4[3] = in.c4[0];
+
+    return out;
+}
+
+int
+vboxwrite4bytes (
+    const char *fn,
+    FILE *outfile,
+    const char *filename,
+    union VBOX4BYTES fb,
+    long *bytepos,
+    uint32_t *checksum
+)
+// writes exactly 4 bytes to the given output FILE*;
+// updates byte position counter and updates checksum
+// on error: returns 0
+// on success: returns non-zero
+{
+    if( 4 != fwrite( &fb, 1, 4, outfile ) ) {
+        fprintf( stderr, "%s: error writing to file %s at position %ld\n",
+            fn, filename, *bytepos );
+        return 0;
+    }
+
+    *bytepos += 4;
+    *checksum += fb.u32;
+
+    return 1;
+}
+
+int
+vboxstorebinary (
+    const char *filename,
+    struct VELOCITYBOX vbox
+)
+// see VBOXFORMAT.txt
+// on error: returns 0
+// on success: returns non-0
+{
+    const char *fn = "vboxstorebinary";
+
+    FILE *outfile = fopen( filename, "wb" );
+    if( outfile == NULL ) {
+        // there was a problem opening/creating the given file
+        fprintf( stderr, "%s: error creating file %s\n", fn, filename );
+        return 0;
+    }
+
+    // this union lets us do stuff like checksums and endianness conversion
+    union VBOX4BYTES fb;
+
+    // write header
+    fb.c4[0] = (int8_t)'v';
+    fb.c4[1] = (int8_t)'b';
+    fb.c4[2] = (int8_t)'o';
+    fb.c4[3] = (int8_t)'x';
+
+    if( 4 != fwrite( &fb, 1, 4, outfile ) ) {
+        // there was a problem writing to the file
+        fprintf( stderr, "%s: error writing to file %s\n", fn, filename );
+        fclose( outfile );
+        return 0;
+    }
+
+    long bytepos = 4;
+    uint32_t checksum = 0;
+
+    // detect endianness of this machine: choose path accordingly
+    if( fb.u32 == 0x786f6276 ) {
+        // little-endian: write values directly
+
+        int err = 0;
+
+        // ox, oy, oz
+        fb.i32 = vbox.ox;
+        err |= !vboxwrite4bytes( fn, outfile, filename, fb, &bytepos, &checksum );
+        fb.i32 = vbox.oy;
+        err |= !vboxwrite4bytes( fn, outfile, filename, fb, &bytepos, &checksum );
+        fb.i32 = vbox.oz;
+        err |= !vboxwrite4bytes( fn, outfile, filename, fb, &bytepos, &checksum );
+
+        // nx, ny, nz
+        fb.i32 = vbox.box.nx;
+        err |= !vboxwrite4bytes( fn, outfile, filename, fb, &bytepos, &checksum );
+        fb.i32 = vbox.box.ny;
+        err |= !vboxwrite4bytes( fn, outfile, filename, fb, &bytepos, &checksum );
+        fb.i32 = vbox.box.nz;
+        err |= !vboxwrite4bytes( fn, outfile, filename, fb, &bytepos, &checksum );
+
+        // check for errors
+        if( err ) {
+            fclose( outfile );
+            return 0;
+        }
+
+        // flat array of velocities
+        size_t numvals = (size_t)vbox.box.nx * vbox.box.ny * vbox.box.nz;
+        size_t i;
+        for( i = 0; i < numvals; i++ ) {
+            fb.f32 = vbox.box.flat[i];
+            if( !vboxwrite4bytes( fn, outfile, filename, fb, &bytepos, &checksum ) ) {
+                fclose( outfile );
+                return 0;
+            }
+        }
+
+        // write final checksum value
+        fb.u32 = checksum;
+        if( !vboxwrite4bytes( fn, outfile, filename, fb, &bytepos, &checksum ) ) {
+            fclose( outfile );
+            return 0;
+        }
+
+    } else {
+        // big-endian: must reverse byte order before writing
+        printf( "missing code: big-endian vbox writing\n" );
+
+    }
+
+    fclose( outfile );
 
     // success
     return 1;

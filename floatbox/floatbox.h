@@ -77,7 +77,7 @@ void
 boxfree (
     struct FLOATBOX *box
 )
-// frees box->flat and sets it to NULL
+// releases heap memory associated with box
 {
     free( box->flat );
     box->flat = NULL;
