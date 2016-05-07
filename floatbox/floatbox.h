@@ -21,6 +21,7 @@
 // includes
 ////////////////////////////////////////////////////////////////////////////////
 
+#include <stdio.h>
 #include <stdlib.h>
 
 
@@ -123,6 +124,30 @@ boxput (
 // stores a single value at the given coordinates
 {
     box.flat[ boxindex( box, x, y, z ) ] = val;
+}
+
+
+void
+boxfprint (
+    FILE *stream,
+    const char *prefix,
+    const char *indent,
+    struct FLOATBOX box
+)
+// metadata friendly-printing
+{
+    if( stream == NULL ) stream = stdout;
+    if( prefix == NULL ) prefix = "";
+    if( indent == NULL ) indent = "  ";
+
+    fprintf( stream, "%sFLOATBOX {\n", prefix );
+    fprintf( stream, "%s%ssx: %zu, sy: %zu, sz %zu\n",
+        prefix, indent, box.sx, box.sy, box.sz );
+    fprintf( stream, "%s%snx: %d, ny: %d, nz: %d\n",
+        prefix, indent, box.nx, box.ny, box.nz );
+    fprintf( stream, "%s%sflat: %p\n",
+        prefix, indent, (void*)box.flat );
+    fprintf( stream, "%s}\n", prefix );
 }
 
 
