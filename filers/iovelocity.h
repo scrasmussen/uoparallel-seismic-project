@@ -422,8 +422,12 @@ vboxfprint (
         prefix, indent, vbox.ox, vbox.oy, vbox.oz );
 
     char *newprefix = malloc( strlen( prefix ) + strlen( indent ) + 1 );
-    strcpy( newprefix, prefix );
-    strcpy( newprefix + strlen( prefix ), indent );
+    if( newprefix != NULL ) {
+        strcpy( newprefix, prefix );
+        strcpy( newprefix + strlen( prefix ), indent );
+    } else {
+        newprefix = prefix;
+    }
     boxfprint( stream, newprefix, indent, vbox.box );
     free( newprefix );
 

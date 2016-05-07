@@ -1,4 +1,4 @@
-C ?= gcc
+CC ?= gcc
 CCFLAGS = -std=c11 -O3 -Wall -Wfatal-errors -Wpedantic -Winline
 
 all: iotest
