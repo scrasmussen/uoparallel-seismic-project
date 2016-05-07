@@ -5,7 +5,7 @@
 int main()
 {
     int nx, ny, nz;
-    nx = ny = nz = 3192;
+    nx = ny = nz = 3192; // make a very large box (flat indices well beyond INT_MAX)
 
     struct FLOATBOX box;
     if( !boxalloc( &box, nx, ny, nz ) ) {
@@ -35,13 +35,19 @@ int main()
     printf( "sum: %g\n", sum );
     */
 
+    // explicitly store a key value at the very last index
     box.flat[ 3192l * 3192l * 3192l - 1l ] = 1.234f;
 
+    // check that boxget() indexing works correctly
     float get = boxget( box, nx-1, ny-1, nz-1 );
-    printf( "last: %g\n", get );
+    printf( "last: %g (should be 1.234)\n", get );
 
+    // show the index computed by boxindex()
     size_t idx = boxindex( box, nx-1, ny-1, nz-1 );
     printf( "index of last element by boxindex(): %zu\n", idx );
+
+    // note: since boxindex() is used for both boxget and boxput, if it
+    //       works for one, it will work for the other.
 
     boxfree( &box );
 

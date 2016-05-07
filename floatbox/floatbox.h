@@ -57,7 +57,7 @@ boxalloc (
         return 0;
     }
 
-    boxdst->sx = ny * nz;
+    boxdst->sx = (size_t)ny * nz;
     boxdst->sy = nz;
     boxdst->sz = 1;
 
