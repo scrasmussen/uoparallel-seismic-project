@@ -211,6 +211,7 @@ vboxreversebytes (
     return out;
 }
 
+
 int
 vboxwrite4bytes (
     const char *fn,
@@ -236,6 +237,36 @@ vboxwrite4bytes (
 
     return 1;
 }
+
+
+int
+vboxwrite4bytesreversed (
+    const char *fn,
+    FILE *outfile,
+    const char *filename,
+    union VBOX4BYTES fb,
+    long *bytepos,
+    uint32_t *checksum
+)
+// writes exactly 4 bytes to the given output FILE*, but in reverse byte order;
+// updates byte position counter and updates checksum
+// on error: returns 0
+// on success: returns non-zero
+{
+    union VBOX4BYTES rb = vboxreversebytes( fb );
+
+    if( 4 != fwrite( &rb, 1, 4, outfile ) ) {
+        fprintf( stderr, "%s: error writing to file %s at position %ld\n",
+            fn, filename, *bytepos );
+        return 0;
+    }
+
+    *bytepos += 4;
+    *checksum += fb.u32;
+
+    return 1;
+}
+
 
 int
 vboxstorebinary (
@@ -322,8 +353,48 @@ vboxstorebinary (
 
     } else {
         // big-endian: must reverse byte order before writing
-        printf( "missing code: big-endian vbox writing\n" );
 
+        int err = 0;
+
+        // ox, oy, oz
+        fb.i32 = vbox.ox;
+        err |= !vboxwrite4bytesreversed( fn, outfile, filename, fb, &bytepos, &checksum );
+        fb.i32 = vbox.oy;
+        err |= !vboxwrite4bytesreversed( fn, outfile, filename, fb, &bytepos, &checksum );
+        fb.i32 = vbox.oz;
+        err |= !vboxwrite4bytesreversed( fn, outfile, filename, fb, &bytepos, &checksum );
+
+        // nx, ny, nz
+        fb.i32 = vbox.box.nx;
+        err |= !vboxwrite4bytesreversed( fn, outfile, filename, fb, &bytepos, &checksum );
+        fb.i32 = vbox.box.ny;
+        err |= !vboxwrite4bytesreversed( fn, outfile, filename, fb, &bytepos, &checksum );
+        fb.i32 = vbox.box.nz;
+        err |= !vboxwrite4bytesreversed( fn, outfile, filename, fb, &bytepos, &checksum );
+
+        // check for errors
+        if( err ) {
+            fclose( outfile );
+            return 0;
+        }
+
+        // flat array of velocities
+        size_t numvals = (size_t)vbox.box.nx * vbox.box.ny * vbox.box.nz;
+        size_t i;
+        for( i = 0; i < numvals; i++ ) {
+            fb.f32 = vbox.box.flat[i];
+            if( !vboxwrite4bytesreversed( fn, outfile, filename, fb, &bytepos, &checksum ) ) {
+                fclose( outfile );
+                return 0;
+            }
+        }
+
+        // write final checksum value
+        fb.u32 = checksum;
+        if( !vboxwrite4bytesreversed( fn, outfile, filename, fb, &bytepos, &checksum ) ) {
+            fclose( outfile );
+            return 0;
+        }
     }
 
     fclose( outfile );
