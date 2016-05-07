@@ -49,7 +49,7 @@ boxalloc (
 // on error: returns 0
 // on success: returns non-zero
 {
-    size_t numbytes = nx * ny * nz * sizeof(float);
+    size_t numbytes = (size_t)nx * ny * nz * sizeof(float);
     float *flat = malloc( numbytes );
 
     if( flat == NULL ) {
@@ -70,6 +70,7 @@ boxalloc (
     return 1;
 }
 
+
 void
 boxfree (
     struct FLOATBOX *boxdst
@@ -80,10 +81,11 @@ boxfree (
     boxdst->flat = NULL;
 }
 
+
 inline extern
 size_t
 boxindex (
-    const struct FLOATBOX box,
+    struct FLOATBOX box,
     int x,
     int y,
     int z
@@ -93,10 +95,11 @@ boxindex (
     return x * box.sx + y * box.sy + z * box.sz;
 }
 
+
 inline extern
 float
 boxget (
-    const struct FLOATBOX boxsrc,
+    struct FLOATBOX boxsrc,
     int x,
     int y,
     int z
@@ -106,10 +109,11 @@ boxget (
     return boxsrc.flat[ boxindex( boxsrc, x, y, z ) ];
 }
 
+
 inline extern
 void
 boxput (
-    const struct FLOATBOX boxdst,
+    struct FLOATBOX boxdst,
     int x,
     int y,
     int z,
