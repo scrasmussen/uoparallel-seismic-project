@@ -41,12 +41,12 @@ struct FLOATBOX {
 
 int
 boxalloc (
-    struct FLOATBOX *boxdst,
+    struct FLOATBOX *box,
     int nx,
     int ny,
     int nz
 )
-// allocates boxdst->flat and sets strides and dimensions appropriately;
+// allocates box->flat and sets strides and dimensions appropriately;
 // on error: returns 0
 // on success: returns non-zero
 {
@@ -58,15 +58,15 @@ boxalloc (
         return 0;
     }
 
-    boxdst->sx = (size_t)ny * nz;
-    boxdst->sy = nz;
-    boxdst->sz = 1;
+    box->sx = (size_t)ny * nz;
+    box->sy = nz;
+    box->sz = 1;
 
-    boxdst->nx = nx;
-    boxdst->ny = ny;
-    boxdst->nz = nz;
+    box->nx = nx;
+    box->ny = ny;
+    box->nz = nz;
 
-    boxdst->flat = flat;
+    box->flat = flat;
 
     return 1;
 }
@@ -74,12 +74,12 @@ boxalloc (
 
 void
 boxfree (
-    struct FLOATBOX *boxdst
+    struct FLOATBOX *box
 )
-// frees boxdst->flat and sets it to NULL
+// frees box->flat and sets it to NULL
 {
-    free( boxdst->flat );
-    boxdst->flat = NULL;
+    free( box->flat );
+    box->flat = NULL;
 }
 
 
@@ -100,21 +100,21 @@ boxindex (
 inline extern
 float
 boxget (
-    struct FLOATBOX boxsrc,
+    struct FLOATBOX box,
     int x,
     int y,
     int z
 )
 // returns a single value from the given coordinates
 {
-    return boxsrc.flat[ boxindex( boxsrc, x, y, z ) ];
+    return box.flat[ boxindex( box, x, y, z ) ];
 }
 
 
 inline extern
 void
 boxput (
-    struct FLOATBOX boxdst,
+    struct FLOATBOX box,
     int x,
     int y,
     int z,
@@ -122,7 +122,7 @@ boxput (
 )
 // stores a single value at the given coordinates
 {
-    boxdst.flat[ boxindex( boxdst, x, y, z ) ] = val;
+    box.flat[ boxindex( box, x, y, z ) ] = val;
 }
 
 
