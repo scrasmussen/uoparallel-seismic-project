@@ -6,7 +6,8 @@
 //   gcc 5.2
 //   -std=c11 -O3 -Wall -Wfatal-errors -Wpedantic -Winline
 // report:
-//   all functions successfully inlined in get/put test
+//   * all functions successfully inlined in get/put test
+//   * boxindex() correctly computes indices when (x*y*z) > INT_MAX
 // note:
 //   For inlining purposes, these functions are fleshed out in this header file,
 //   instead of using a separate compilation unit.
