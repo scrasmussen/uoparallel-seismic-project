@@ -13,6 +13,37 @@
 //   instead of using a separate compilation unit.
 //
 ////////////////////////////////////////////////////////////////////////////////
+//
+// Data:
+//
+//   struct FLOATBOX:
+//      efficiently stores a 3D float volume in flat memory
+//
+//
+// Functions:
+//
+//   int boxalloc( struct FLOATBOX*, int nx, int ny, int nz )
+//   void boxfree( struct FLOATBOX* )
+//   float boxget( struct FLOATBOX, int x, int y, int z )
+//   void boxput( struct FLOATBOX, int x, int y, int z, float )
+//   void boxfprint( FILE* char *prefix, char *indent, struct FLOATBOX )
+//
+//
+// Example program:
+//
+//   #include "floatbox.h"
+//   #include <stdio.h> /* for printf and stdout, not necessary otherwise */
+//   int main() {
+//     struct FLOATBOX box;
+//     if( !boxalloc( &box, 241, 241, 51 ) ) { /* handle error */ }
+//     boxfprint( stdout, "example: ", "\t", box );
+//     boxput( box, 1, 2, 3, 4.567f );
+//     printf( "value at (1,2,3): %g\n", boxget( box, 1, 2, 3 ) );
+//     boxfree( &box );
+//   }
+//
+//
+////////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
@@ -39,6 +70,26 @@ struct FLOATBOX {
 ////////////////////////////////////////////////////////////////////////////////
 // functions
 ////////////////////////////////////////////////////////////////////////////////
+
+void
+boxinit (
+    struct FLOATBOX *box
+)
+// initializes box to safe default values
+{
+    if( box == NULL ) return;
+
+    box->sx = 0;
+    box->sy = 0;
+    box->sz = 0;
+
+    box->nx = 0;
+    box->ny = 0;
+    box->nz = 0;
+
+    box->flat = NULL;
+}
+
 
 int
 boxalloc (
