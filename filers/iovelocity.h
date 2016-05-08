@@ -16,11 +16,13 @@
 //   * friendly error messages to stderr
 //   * friendly metadata printing: see vboxfprint(..)
 //
+//
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Data:
 //   struct VELOCITYBOX:
 //      efficiently stores a 3D velocity volume in flat memory
+//
 //
 // Functions:
 //    void vboxfree( struct VELOCITYBOX* )
@@ -28,6 +30,7 @@
 //    int vboxloadbinary( struct VELOCITYBOX*, char *filename )
 //    int vboxstorebinary( char *filename, struct VELOCITYBOX )
 //    void vboxfprint( FILE*, char *prefix, char *indent, struct VELOCITYBOX )
+//
 //
 // Example program:
 //
@@ -42,6 +45,7 @@
 //      vboxfprint( stdout, "example: ", "\t", vbox );
 //      vboxfree( &vbox );
 //    }
+//
 //
 ////////////////////////////////////////////////////////////////////////////////
 
