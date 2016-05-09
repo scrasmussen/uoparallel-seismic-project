@@ -7,4 +7,5 @@ int main() {
     vboxfree( &vbox );
     if( !vboxloadbinary( &vbox, "velocities.vbox" ) ) { /* handle error */ }
     vboxfprint( stdout, "example: ", "\t", vbox );
+    vboxfree( &vbox );
 }
