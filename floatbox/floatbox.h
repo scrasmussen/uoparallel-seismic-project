@@ -26,7 +26,7 @@
 //   void boxfree( struct FLOATBOX* )
 //   float boxget( struct FLOATBOX, int x, int y, int z )
 //   void boxput( struct FLOATBOX, int x, int y, int z, float )
-//   void boxfprint( FILE* char *prefix, char *indent, struct FLOATBOX )
+//   void boxfprint( FILE*, char *prefix, char *indent, struct FLOATBOX )
 //
 //
 // Example program:
