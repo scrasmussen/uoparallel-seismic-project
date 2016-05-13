@@ -1,4 +1,4 @@
-CC=gcc
+CC?=gcc
 CFLAGS=-O3 -g -fPIC
 CFLAGS_KNL=-O3 -g -fPIC -axMIC-AVX512
 LDFLAGS=-lm
