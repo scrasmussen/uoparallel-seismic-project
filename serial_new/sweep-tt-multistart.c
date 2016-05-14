@@ -1,3 +1,8 @@
+////////////////////////////////////////////////////////////////////////////////
+// sweep-tt-multistart.c - using VELOCITYBOX and FLOATBOX
+// vim: set tabstop=2 softtabstop=2 shiftwidth=2 expandtab :
+////////////////////////////////////////////////////////////////////////////////
+
 /********************************************************************************/
 /* Given a velocity field v[nx][ny][nz] for a set of points (i,j,k) (where	*/
 /* 0 <= i < nx, 0 <= j < ny, 0 <= k < nz) layed out on a grid with delta unit	*/
@@ -6,10 +11,7 @@
 /*										*/
 /*	sweep-tt-multistart vfile fsfile startfile       			*/
 /*										*/
-/* vfile is the velocity field file and has the format:				*/
-/*										*/
-/*	nx ny nz								*/
-/*	v[i][j][k] for every point (i,j,k) in row-major order			*/
+// vfile is the velocity field file and has the .vbox format.
 /*										*/
 /* fsfile is the forward star offset file and has the format:			*/
 /*										*/
@@ -29,6 +31,9 @@
 /* for every starting point.							*/
 /* (Note, the program currently exits before this is done.)			*/
 /********************************************************************************/
+
+#include "../include/iovelocity.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
@@ -55,8 +60,11 @@ struct START {			/* starting point */
 int		changed[STARTMAX];
 
 struct FS	fs[FSMAX];
-struct MODEL	model[MODELMAX][MODELMAX][MODELMAX];
+//struct MODEL	model[MODELMAX][MODELMAX][MODELMAX];
 struct START	start[STARTMAX];
+
+struct VELOCITYBOX vbox; // stores JUST velocities
+struct FLOATBOX ttboxes[STARTMAX]; // stores JUST travel times, one volume per starting point
 
 int sweepXYZ();
 
@@ -67,34 +75,20 @@ int main(int argc, char* argv[]) {
   float		delta, delay;
   FILE		*vfile, *fsfile, *ttfile, *startfile;
 
-  /**
-   * TODO:
-   *   1. Initialize MPI library
-   *   2. Get number of processes
-   *   3. Get rank of current process
-   *
-   *   Note: Only 4 starting points are used.  Code should work
-   *         with 1 or 4 processors (should check).  Usually should
-   *         write an MPI code to work with an arbitrary number of
-   *         processors unless algorithm doesn't allow it.
-   */
-
-  /**
-   * TODO: Make sure there aren't any race conditions.  If there are, fix
-   *       with barriers.
-   */
-
-  /**
-   * TODO: Only rank 0 should do I/O
-   */
+  const char *velocity_model_file = argv[1];
 
   /* open velocity model file */
-  vfile = fopen(argv[1],"r");
-  if(vfile == NULL) {
-    printf("Cannot open velocity model file: %s\n", argv[1]);
+  printf( "Loading velocity model file: %s...", velocity_model_file ); fflush( stdout );
+  if( !vboxloadbinary( &vbox, velocity_model_file ) ) {
+  //if( !vboxloadtext( &vbox, velocity_model_file ) ) {
+    printf( "Cannot open velocity model file: %s\n", velocity_model_file );
     exit(1);
   }
-  printf("Velocity model file: %s\n", argv[1]);
+  nx = vbox.box.nx;
+  ny = vbox.box.ny;
+  nz = vbox.box.nz;
+  printf( " done.\n" ); fflush( stdout );
+  printf( "Velocity model dimensions: %d x %d x %d\n", nx, ny, nz );
 
   /* open forward star offset file */
   fsfile = fopen(argv[2],"r");
@@ -115,24 +109,6 @@ int main(int argc, char* argv[]) {
   /* get delta */
   delta = 10.0;
   printf("Delta: %f\n", delta);
-
-  /* read velocity model (modified to read original input for Fortran) */
-  nx = 241; ny = 241; nz = 51;
-  printf("Velocity model dimensions: %i %i %i\n",nx, ny, nz);
-  int ir, jr, kr;   /* read indices */
-  for (i=0; i<nx; i++) {
-    for (j=0; j<ny; j++) {
-      for (k=0; k<nz; k++) {
-         fscanf(vfile, "%d,%d,%d,%f", &ir, &jr, &kr, &model[i][j][k].v);
-         if (ir != i+1 || jr != j+1 || kr != k+1) {
-            printf("ERROR: index error reading velocity model "
-                   "(%d,%d,%d) (%d,%d,%d)\n", i,j,k, ir,jr,kr);
-            exit(1);
-         }
-      }
-    }
-  }
-  printf("Velocity data read\n");
 
   /* read forward star offsets */
   starsize = 0;
@@ -159,32 +135,20 @@ int main(int argc, char* argv[]) {
 
   /* read starting points */
   fscanf(startfile, "%i", &numstart);
-  for (i=0; i<nx; i++) {
-    for (j=0; j<ny; j++) {
-      for (k=0; k<nz; k++) {
-	for (s=0; s<numstart; s++) {
-	  model[i][j][k].tt[s] = INFINITY;
-	}
-      }
-    }
-  }
-  for (s=0; s<numstart; s++) {
-    fscanf(startfile, "%i %i %i", &start[s].i, &start[s].j, &start[s].k);
-    model[start[s].i][start[s].j][start[s].k].tt[s] = 0;
-    printf("starting point %d: %d %d %d\n", s, start[s].i, start[s].j, start[s].k);
+  // initialize travel times for all starting points
+  for( s = 0; s < numstart; s++ ) {
+    // prepare travel time volumes
+    boxalloc( &ttboxes[s], nx, ny, nz );
+    boxsetall( ttboxes[s], INFINITY );
+
+    // set the starting point to have a travel time of 0
+    fscanf( startfile, "%i %i %i", &i, &j, &k );
+    boxput( ttboxes[s], i, j, k, 0 );
+    printf( "starting point %d: %d %d %d\n", s, i, j, k );
+    start[s].i = i; start[s].j = j; start[s].k = k;
   }
   printf("Starting points read\n");
   
-  /**
-   * TODO: Rank 0 should broadcast velocity model and forward star data.
-   */
-
-  /**
-   * TODO: Rank 0 should assign starting points to other ranks (in this
-   *       case, 1 starting point per process).  Other processes should
-   *       read its starting point.
-   */
-
   /* sweep until no change in travel times occur */
   anychange = 1;
   while (anychange) {
@@ -193,12 +157,6 @@ int main(int argc, char* argv[]) {
     anychange = 0;
     printf("sweep %d begin\n", numsweeps);
 
-    /**
-     * TODO: A rank should only do its starting point, not all of them.
-     *
-     * Note: You may want to use also write out the rank of the process
-     *       that is reporting progress.
-     */
     for (s=0; s<numstart; s++) {
       changed[s] = 0;
       changed[s] += sweepXYZ(nx, ny, nz, s, 0, starsize-1);
@@ -208,17 +166,13 @@ int main(int argc, char* argv[]) {
       anychange += changed[s];
     }
     printf("sweep %d finished: anychange = %d\n", numsweeps, anychange);
+
+    // temporary: break after one sweep, record results, quit
+    break;
   }
 
-  /**
-   * TODO: Rank 0 should gather results from other processes or it's OK to have
-   *       each process write its own output.  Make sure that the filenames
-   *       don't collide.  At least think about how rank 0 could gather output
-   *       results.
-   */
-
   /* TODO: Remove exit statement so output can complete. */
-  exit(0);
+  //exit(0);
 
   /* print travel times */
   ttfile = fopen("output.tt","w");
@@ -231,19 +185,15 @@ int main(int argc, char* argv[]) {
     fprintf(ttfile, "starting point: %d\n", s);
     for (i=0; i<nx; i++) {
       for (j=0; j<ny; j++) {
-	for (k=0; k<nz; k++) {
-	  /* use %g for doubles */
-	  fprintf(ttfile, "travel time for (%d,%d,%d): %f %d %d %d\n",
-		  i, j, k, model[i][j][k].tt[s], 0, 0, 0);
-	}
+        for (k=0; k<nz; k++) {
+          /* use %g for doubles */
+
+          fprintf(ttfile, "travel time for (%d,%d,%d): %f %d %d %d\n",
+            i, j, k, boxget( ttboxes[s], i, j, k ), 0, 0, 0 );
+        }
       }
     }
   }
-
-  /**
-   * TODO: Shutdown MPI library
-   */
-
 } /* main */
 
 
@@ -255,51 +205,51 @@ int sweepXYZ(int nx, int ny, int nz, int s, int starstart, int starstop) {
   for (i=0; i<nx; i++) {
     for (j=0; j<ny; j++) {
       for (k=0; k<nz; k++) {
-	for (l=starstart; l<starstop; l++) {
-	  /* find point in forward star based on offsets */
-	  oi = i+fs[l].i; oj = j+fs[l].j; ok = k+fs[l].k;
-	  /* if (oi,oj,ok) is outside the boundaries, then skip */
-	  if ((oi < 0) || (oi > nx-1)
-	      || (oj < 0) || (oj > ny-1)
-	      || (ok < 0) || (ok > nz-1)) {
-	    continue;
-	  }
-	  /* compute delay from (i,j,k) to (oi,oj,ok) with end point average */
-	  delay = fs[l].d * (model[i][j][k].v + model[oi][oj][ok].v) / 2.0;
-	  /* update travel times for all starting points */
-	  /* if (i,j,k) is starting point, then skip */
-	  if ((i == start[s].i) && (j == start[s].j) && (k == start[s].k)) {
-	    continue;
-	  }
-	  tt = model[i][j][k].tt[s];
-	  tto = model[oi][oj][ok].tt[s];
-	  /* if offset point has infinity travel time, then update */
-	  if ((tt == INFINITY) && (tto == INFINITY)) {
-	    continue;
-	  }
-	  if ((tt != INFINITY) && (tto == INFINITY)) {
-	    model[oi][oj][ok].tt[s] = delay + tt;
-	    change += 1;
-	    continue;
-	  }
-	  if ((tt == INFINITY) && (tto != INFINITY)) {
-	    model[i][j][k].tt[s] = delay + tto;
-	    change += 1;
-	    continue;
-	  }
-	  if ((tt != INFINITY) && (tto != INFINITY)) {
-	    /* if a shorter travel time through (oi,oj,ok), update (i,j,k) */
-	    if ((delay + tto) < tt) {
-	      model[i][j][k].tt[s] = delay + tto;
-	      change += 1;
-	    }
-	    /* if a shorter travel time through (i,j,k), update (oi,oj,ok) */
-	    else if ((delay + tt) < tto) {
-	      model[oi][oj][ok].tt[s] = delay + tt;
-	      change += 1;
-	    }
-	  }
-	}
+        for (l=starstart; l<starstop; l++) {
+          /* find point in forward star based on offsets */
+          oi = i+fs[l].i; oj = j+fs[l].j; ok = k+fs[l].k;
+          /* if (oi,oj,ok) is outside the boundaries, then skip */
+          if ((oi < 0) || (oi > nx-1)
+              || (oj < 0) || (oj > ny-1)
+              || (ok < 0) || (ok > nz-1)) {
+            continue;
+          }
+          /* compute delay from (i,j,k) to (oi,oj,ok) with end point average */
+          delay = fs[l].d * (boxget(vbox.box, i, j, k) + boxget(vbox.box, oi, oj, ok)) / 2.0;
+          /* update travel times for all starting points */
+          /* if (i,j,k) is starting point, then skip */
+          if ((i == start[s].i) && (j == start[s].j) && (k == start[s].k)) {
+            continue;
+          }
+          tt = boxget( ttboxes[s], i, j, k );
+          tto = boxget( ttboxes[s], oi, oj, ok );
+          /* if offset point has infinity travel time, then update */
+          if ((tt == INFINITY) && (tto == INFINITY)) {
+            continue;
+          }
+          if ((tt != INFINITY) && (tto == INFINITY)) {
+            boxput( ttboxes[s], oi, oj, ok, delay + tt );
+            change += 1;
+            continue;
+          }
+          if ((tt == INFINITY) && (tto != INFINITY)) {
+            boxput( ttboxes[s], i, j, k, delay + tto );
+            change += 1;
+            continue;
+          }
+          if ((tt != INFINITY) && (tto != INFINITY)) {
+            /* if a shorter travel time through (oi,oj,ok), update (i,j,k) */
+            if ((delay + tto) < tt) {
+              boxput( ttboxes[s], i, j, k, delay + tto );
+              change += 1;
+            }
+            /* if a shorter travel time through (i,j,k), update (oi,oj,ok) */
+            else if ((delay + tt) < tto) {
+              boxput( ttboxes[s], oi, oj, ok, delay + tt );
+              change += 1;
+            }
+          }
+        }
       }
     }
   }
