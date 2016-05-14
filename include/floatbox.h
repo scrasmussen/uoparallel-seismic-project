@@ -23,6 +23,7 @@
 // Functions:
 //
 //   int boxalloc( struct FLOATBOX*, int nx, int ny, int nz )
+//   void boxsetall( struct FLOATBOX, float value )
 //   void boxfree( struct FLOATBOX* )
 //   float boxget( struct FLOATBOX, int x, int y, int z )
 //   void boxput( struct FLOATBOX, int x, int y, int z, float )
@@ -130,6 +131,7 @@ boxfree (
 )
 // releases heap memory associated with box
 {
+    if( box == NULL ) return;
     free( box->flat );
     box->flat = NULL;
 }
@@ -177,6 +179,18 @@ boxput (
     box.flat[ boxindex( box, x, y, z ) ] = val;
 }
 
+
+void
+boxsetall (
+    const struct FLOATBOX box,
+    float val
+)
+// sets ALL values in the volume to the given value
+{
+    if( box.flat == NULL ) return;
+    size_t i, last = boxindex( box, box.nx-1, box.ny-1, box.nz-1 );
+    for( i = 0; i <= last; i++ ) box.flat[i] = val;
+}
 
 void
 boxfprint (
