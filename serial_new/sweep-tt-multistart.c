@@ -11,10 +11,7 @@
 /*										*/
 /*	sweep-tt-multistart vfile fsfile startfile       			*/
 /*										*/
-/* vfile is the velocity field file and has the format:				*/
-/*										*/
-/*	nx ny nz								*/
-/*	v[i][j][k] for every point (i,j,k) in row-major order			*/
+// vfile is the velocity field file and has the .vbox format.
 /*										*/
 /* fsfile is the forward star offset file and has the format:			*/
 /*										*/
@@ -82,7 +79,8 @@ int main(int argc, char* argv[]) {
 
   /* open velocity model file */
   printf( "Loading velocity model file: %s...", velocity_model_file ); fflush( stdout );
-  if( !vboxloadtext( &vbox, velocity_model_file ) ) {
+  if( !vboxloadbinary( &vbox, velocity_model_file ) ) {
+  //if( !vboxloadtext( &vbox, velocity_model_file ) ) {
     printf( "Cannot open velocity model file: %s\n", velocity_model_file );
     exit(1);
   }
