@@ -1,5 +1,5 @@
 CC ?= cc
-CFLAGS = -O3
+CFLAGS = -O3 -Wfatal-errors
 DOCS = ../docs
 RM ?= rm
 
