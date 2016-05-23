@@ -1,0 +1,7 @@
+--------------------------------------------------------------------------
+mpirun detected that one or more processes exited with non-zero status, thus causing
+the job to be terminated. The first process to do so was:
+
+  Process name: [[6001,1],2]
+  Exit code:    48
+--------------------------------------------------------------------------
