@@ -212,9 +212,9 @@ boxfprint (
     if( indent == NULL ) indent = "  ";
 
     fprintf( stream, "%sFLOATBOX {\n", prefix );
-    fprintf( stream, "%s%ssx: %zu, sy: %zu, sz %zu\n",
+    fprintf( stream, "%s%sstrides: (%zu, %zu, %zu)\n",
         prefix, indent, box.sx, box.sy, box.sz );
-    fprintf( stream, "%s%ssize.x: %d, size.y: %d, size.z: %d\n",
+    fprintf( stream, "%s%ssize: (%d, %d, %d)\n",
         prefix, indent, box.size.x, box.size.y, box.size.z );
     fprintf( stream, "%s%sflat: %p\n",
         prefix, indent, (void*)box.flat );
