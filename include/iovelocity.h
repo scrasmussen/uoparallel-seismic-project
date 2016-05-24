@@ -74,6 +74,15 @@ struct VELOCITYBOX {
 };
 
 
+struct VBOXOPENFILE {
+    FILE *file;    // if non-NULL, then assume file is successfully open
+    int is_little_endian;
+    struct POINT3D min, dims;
+    uint32_t checksum;
+    const char *filename;
+};
+
+
 ////////////////////////////////////////////////////////////////////////////////
 // unions
 ////////////////////////////////////////////////////////////////////////////////
@@ -536,27 +545,21 @@ vboxread4bytesreversed (
 }
 
 
-FILE*
-vboxopenbinary(
-    int *little_endian,
-    struct POINT3D *coords_min,
-    struct POINT3D *coords_size,
-    uint32_t *checksum_current,
-    const char *filename
+int                                 // returns: 0 on error, else non-0
+vboxopenbinary (
+    struct VBOXOPENFILE *vbfile,    // out: stores metadata of open file
+    const char *filename            // in: see VBOXFORMAT.txt for details
 )
-// see VBOXFORMAT.txt
-// on error: returns NULL
-// on success: sets coords_min and coords_size and checksum_current,
-//             and returns an open FILE* handle
-// note: when done, just call fclose(..) on the handle
+// note: when done with 'vbfile', be sure to run vboxclosebinary( &vbfile )
 {
     const char *fn = "vboxopenbinary";
 
+    vbfile->file = NULL;
+
     FILE *infile = fopen( filename, "rb" );
     if( infile == NULL ) {
-        // there was a problem opening the given file
         fprintf( stderr, "%s: error opening file %s\n", fn, filename );
-        return NULL;
+        return 0;
     }
 
     // this union lets us keep track of checksums and do endianness conversion
@@ -567,6 +570,8 @@ vboxopenbinary(
 
     // read signature
     if( !vboxread4bytes( fn, infile, filename, &fb, &checksum ) ) {
+        fprintf( stderr, "%s: input file %s is not a vbox binary file, or is corrupted\n",
+            fn, filename );
         fclose( infile );
         return 0;
     }
@@ -576,7 +581,7 @@ vboxopenbinary(
         fprintf( stderr, "%s: input file %s is not a vbox binary file, or is corrupted\n",
             fn, filename );
         fclose( infile );
-        return NULL;
+        return 0;
     }
 
     // global minimum coordinates of velocity volume
@@ -589,10 +594,9 @@ vboxopenbinary(
     int err = 0;
 
     // detect endianness of this machine: choose path accordingly
-    if( fb.u32 == 0x786f6276 ) {
+    if( (vbfile->is_little_endian = (fb.u32 == 0x786f6276)) ) { // 'vbox'
         // little-endian: read values directly
-        if( little_endian != NULL ) *little_endian = 1;
-    
+
         // ox, oy, oz
         err |= !vboxread4bytes( fn, infile, filename, &fb, &checksum );
         ox = fb.i32;
@@ -611,7 +615,6 @@ vboxopenbinary(
     }
     else {
         // big-endian: reverse bytes after reading
-        if( little_endian != NULL ) *little_endian = 0;
 
         // ox, oy, oz
         err |= !vboxread4bytesreversed( fn, infile, filename, &fb, &checksum );
@@ -635,16 +638,29 @@ vboxopenbinary(
         fprintf( stderr, "%s: error reading header in %s: suspect corruption\n",
             fn, filename );
         fclose( infile );
-        return NULL;
+        return 0;
     }
 
     // as appropriate, store metadata from header
-    if( coords_min != NULL ) point3dset( coords_min, ox, oy, oz );
-    if( coords_size != NULL ) point3dset( coords_size, nx, ny, nz );
-    if( checksum_current != NULL) *checksum_current = checksum;
+    vbfile->file = infile;
+    point3dset( &vbfile->min, ox, oy, oz );
+    point3dset( &vbfile->dims, nx, ny, nz );
+    vbfile->checksum = checksum;
+    vbfile->filename = filename;
 
     // success
-    return infile;
+    return 1;
+}
+
+
+void
+vboxclosebinary (
+    struct VBOXOPENFILE *vbfile
+)
+{
+    if( vbfile == NULL || vbfile->file == NULL ) return;
+    fclose( vbfile->file );
+    vbfile->file = NULL;
 }
 
 
@@ -662,6 +678,116 @@ vboxloadbinary (
     if( vbox == NULL ) return 0;
 
     // file metadata
+    struct VBOXOPENFILE vbfile;
+
+    // open file and read header
+    if( !vboxopenbinary( &vbfile, filename ) ) return 0;
+
+    // prepare FLOATBOX to store the contents of the file
+    if( !boxalloc( &vbox->box, vbfile.dims.x, vbfile.dims.y, vbfile.dims.z ) ) {
+        fprintf( stderr, "%s: unable to allocate memory for a FLOATBOX with"
+            "dimension: %d x %d x %d\n", fn, vbfile.dims.x, vbfile.dims.y, vbfile.dims.z );
+        vboxclosebinary( &vbfile );
+        return 0;
+    }
+
+    // this union lets us keep track of checksums and do endianness conversion
+    union VBOX4BYTES fb;
+
+    // read flat array of velocities from file and store in the FLOATBOX
+    {
+        size_t i, numvals = boxvolume( vbox->box );
+        uint32_t stored_checksum;
+
+        if( vbfile.is_little_endian ) {
+            // read floats
+            for( i = 0; i < numvals; i++ ) {
+                if( !vboxread4bytes( fn, vbfile.file, filename, &fb, &vbfile.checksum ) ) {
+                    fprintf( stderr, "%s: error reading value at byte position %zu"
+                        " in %s\n", fn, ftell( vbfile.file ), filename );
+                    vboxclosebinary( &vbfile );
+                    vboxfree( vbox );
+                    return 0;
+                }
+                vbox->box.flat[i] = fb.f32;
+            }
+            // read stored checksum value
+            uint32_t dummy_checksum;
+            if( !vboxread4bytes( fn, vbfile.file, filename, &fb, &dummy_checksum ) ) {
+                fprintf( stderr, "%s: error reading stored checksum value from %s\n",
+                    fn, filename );
+                vboxclosebinary( &vbfile );
+                vboxfree( vbox );
+                return 0;
+            }
+            stored_checksum = fb.u32;
+        }
+        else { // big endian
+            // read floats
+            for( i = 0; i < numvals; i++ ) {
+                if( !vboxread4bytesreversed( fn, vbfile.file, filename, &fb, &vbfile.checksum ) ) {
+                    fprintf( stderr, "%s: error reading value at byte position %zu"
+                        " in %s\n", fn, ftell( vbfile.file ), filename );
+                    vboxclosebinary( &vbfile );
+                    vboxfree( vbox );
+                    return 0;
+                }
+                vbox->box.flat[i] = fb.f32;
+            }
+            // read stored checksum value
+            uint32_t dummy_checksum;
+            if( !vboxread4bytesreversed( fn, vbfile.file, filename, &fb, &dummy_checksum ) ) {
+                fprintf( stderr, "%s: error reading stored checksum value from %s\n",
+                    fn, filename );
+                vboxclosebinary( &vbfile );
+                vboxfree( vbox );
+                return 0;
+            }
+            stored_checksum = fb.u32;
+        }
+        
+        // done reading file
+        vboxclosebinary( &vbfile );
+
+        // verify that computed vbfile.checksum matches stored checksum:
+        // else something is corrupt
+        if( vbfile.checksum != stored_checksum ) {
+            fprintf( stderr, "%s: checksum mismatch in input file %s: suspect corruption\n",
+                fn, filename );
+            vboxfree( vbox );
+            return 0;
+        }
+    }
+
+    // set volume metadata in vbox
+    vbox->min = vbfile.min;
+    point3dset(
+        &vbox->max,
+        vbfile.min.x + vbfile.dims.x - 1,
+        vbfile.min.y + vbfile.dims.y - 1,
+        vbfile.min.z + vbfile.dims.z - 1
+    );
+    
+    // success
+    return 1;
+}
+
+/*
+int
+vboxloadbinarysubset (
+    struct VELOCITYBOX *vbox,
+    const char *filename,
+
+)
+// see VBOXFORAT.txt
+// on error: returns 0
+// on success: returns non-zero
+{
+    const char *fn = "vboxloadbinarysubset";
+
+    if( vbox == NULL ) return 0;
+
+    // file metadata
     int little_endian;
     struct POINT3D boxmin, boxsize;
     uint32_t checksum;
@@ -675,94 +801,8 @@ vboxloadbinary (
         filename
     );
     if( infile == NULL ) return 0;
-
-    // prepare FLOATBOX to store the contents of the file
-    if( !boxalloc( &vbox->box, boxsize.x, boxsize.y, boxsize.z ) ) {
-        // couldn't allocate memory for floatbox
-        fprintf( stderr, "%s: unable to allocate memory for a FLOATBOX with"
-            "dimension: %d x %d x %d\n", fn, boxsize.x, boxsize.y, boxsize.z );
-        fclose( infile );
-        return 0;
-    }
-
-    // this union lets us keep track of checksums and do endianness conversion
-    union VBOX4BYTES fb;
-
-    // read flat array of velocities from file and store in the FLOATBOX
-    {
-        size_t i, numvals = boxvolume( vbox->box );
-        uint32_t stored_checksum;
-
-        if( little_endian ) {
-            // read floats
-            for( i = 0; i < numvals; i++ ) {
-                if( !vboxread4bytes( fn, infile, filename, &fb, &checksum ) ) {
-                    fprintf( stderr, "%s: error reading value at byte position %zu"
-                        " in %s\n", fn, ftell( infile ), filename );
-                    fclose( infile );
-                    vboxfree( vbox );
-                    return 0;
-                }
-                vbox->box.flat[i] = fb.f32;
-            }
-            // read stored checksum value
-            uint32_t dummy_checksum;
-            if( !vboxread4bytes( fn, infile, filename, &fb, &dummy_checksum ) ) {
-                fprintf( stderr, "%s: error reading stored checksum value from %s\n",
-                    fn, filename );
-                fclose( infile );
-                vboxfree( vbox );
-                return 0;
-            }
-            stored_checksum = fb.u32;
-        }
-        else { // big endian
-            // read floats
-            for( i = 0; i < numvals; i++ ) {
-                if( !vboxread4bytesreversed( fn, infile, filename, &fb, &checksum ) ) {
-                    fprintf( stderr, "%s: error reading value at byte position %zu"
-                        " in %s\n", fn, ftell( infile ), filename );
-                    fclose( infile );
-                    vboxfree( vbox );
-                    return 0;
-                }
-                vbox->box.flat[i] = fb.f32;
-            }
-            // read stored checksum value
-            uint32_t dummy_checksum;
-            if( !vboxread4bytesreversed( fn, infile, filename, &fb, &dummy_checksum ) ) {
-                fprintf( stderr, "%s: error reading stored checksum value from %s\n",
-                    fn, filename );
-                fclose( infile );
-                vboxfree( vbox );
-                return 0;
-            }
-            stored_checksum = fb.u32;
-        }
-
-        // verify that computed checksum matches stored checksum: else something is corrupt
-        if( checksum != stored_checksum ) {
-            fprintf( stderr, "%s: checksum mismatch in input file %s: suspect corruption\n",
-                fn, filename );
-            vboxfree( vbox );
-            return 0;
-        }
-    }
-
-    vbox->min = boxmin;
-    point3dset(
-        &vbox->max,
-        boxmin.x + boxsize.x - 1,
-        boxmin.y + boxsize.y - 1,
-        boxmin.z + boxsize.z - 1
-    );
-    
-    fclose( infile );
-
-    // success
-    return 1;
 }
-
+*/
 
 void
 vboxfprint (
