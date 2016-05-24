@@ -45,7 +45,7 @@ int main()
     printf( " done.\n" ); fflush( stdout );
 
     // print the new vbox metadata
-    vboxfprint( stdout, "example: ", "\t", vbox );
+    vboxfprint( stdout, "new: ", "\t", vbox );
 
     // show that the modified value is present in the new file
     printf( "value at (%d, %d, %d) = %g\n", x, y, z, boxget( vbox.box, x, y, z ) );
