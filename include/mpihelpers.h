@@ -14,19 +14,11 @@
 int
 mpifindneighborrank (
     int my_rank,
-    int ghost_id,
+    int ghost_id,   // see ^Ghost cell ids
     int width
 )
 // returns mpi rank for a ghost cell id
-// see ^Ghost cell ids
-// - North -> i+d if < d^2 else -1
-// - South -> i-d
-// - West -> -1 if (i % d == 0) else i-1
-// - East -> -1 if (i % d == d - 1) else i+1
-// - NE -> North + 1 if (North > 0 and East > 0) else -1
-// - NW -> North - 1 if (North > 0 and West > 0) else -1
-// - SE -> South + 1 if (South > 0 and East > 0) else -1
-// - SW -> South - 1 if (South > 0 and West > 0) else -1
+// < 0 is no neighbor
 {
   int north     = (my_rank+width < width*width) ? my_rank+width : -1;
   int south     = (my_rank-width);
