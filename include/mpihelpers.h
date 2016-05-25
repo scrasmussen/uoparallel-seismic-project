@@ -10,6 +10,10 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
+struct TempPoint{
+  int x, y, z;
+  int x_size, y_size, z_size;
+};
 
 int
 mpifindneighborrank (
@@ -54,4 +58,145 @@ mpifindneighborrank (
       return -1;
       break;
   }
+}
+
+
+
+void
+mpigetsendcoordinates(
+    int ghost_id,       // see ^Ghost cell ids
+    int ghost_size,      // probably want 7
+    int min_x,
+    int min_y,
+    int max_x,
+    int max_y,
+    int z_size,
+    struct TempPoint *tp
+)
+// returns send coordinates for a given ghost cell and size
+{
+  if( tp == 0 ) return;
+
+  switch (ghost_id) {
+    case 0:
+      tp->x = min_x-ghost_size;
+      tp->y = min_y-ghost_size;
+      tp->x_size = ghost_size;
+      tp->y_size = ghost_size;
+      break;
+    case 1:
+      tp->x = min_x;
+      tp->y = min_y-ghost_size;
+      tp->x_size = max_x-min_x;
+      tp->y_size = ghost_size;
+      break;
+    case 2:
+      tp->x = max_x;
+      tp->y = min_y-ghost_size;
+      tp->x_size = ghost_size;
+      tp->y_size = ghost_size;
+      break;
+    case 3:
+      tp->x = max_x;
+      tp->y = min_y;
+      tp->x_size = ghost_size;
+      tp->y_size = max_y-min_y;
+      break;
+    case 4:
+      tp->x = max_x;
+      tp->y = max_y;
+      tp->x_size = ghost_size;
+      tp->y_size = ghost_size;
+      break;
+    case 5:
+      tp->x = min_x;
+      tp->y = max_y;
+      tp->x_size = max_x-min_x;
+      tp->y_size = ghost_size;
+      break;
+    case 6:
+      tp->x = min_x-ghost_size;
+      tp->y = max_y;
+      tp->x_size = ghost_size;
+      tp->y_size = ghost_size;
+      break;
+    case 7:
+      tp->x = min_x-ghost_size;
+      tp->y = min_y;
+      tp->x_size = ghost_size;
+      tp->y_size = max_y-min_y;
+      break;
+  }
+  tp->z = 0;
+  tp->z_size = z_size;
+}
+
+
+void
+mpigetreceivecoordinates(
+    int ghost_id,       // see ^Ghost cell ids
+    int ghost_size,      // probably want 7
+    int min_x,
+    int min_y,
+    int max_x,
+    int max_y,
+    int z_size,
+    struct TempPoint *tp
+)
+// returns receive coordinates for a given ghost cell and size
+{
+  if( tp == 0 ) return;
+
+  switch (ghost_id) {
+    case 0:
+      tp->x = min_x;
+      tp->y = min_y;
+      tp->x_size = ghost_size;
+      tp->y_size = ghost_size;
+      break;
+    case 1:
+      tp->x = min_x;
+      tp->y = min_y;
+      tp->x_size = max_x-min_x;
+      tp->y_size = ghost_size;
+      break;
+    case 2:
+      tp->x = max_x-ghost_size;
+      tp->y = min_y;
+      tp->x_size = ghost_size;
+      tp->y_size = ghost_size;
+      break;
+    case 3:
+      tp->x = max_x-ghost_size;
+      tp->y = min_y;
+      tp->x_size = ghost_size;
+      tp->y_size = max_y-min_y;
+      break;
+    case 4:
+      tp->x = max_x-ghost_size;
+      tp->y = max_y-ghost_size;
+      tp->x_size = ghost_size;
+      tp->y_size = ghost_size;
+      break;
+    case 5:
+      tp->x = min_x;
+      tp->y = max_y-ghost_size;
+      tp->x_size = max_x-min_x;
+      tp->y_size = ghost_size;
+      break;
+    case 6:
+      tp->x = min_x;
+      tp->y = max_y-ghost_size;
+      tp->x_size = ghost_size;
+      tp->y_size = ghost_size;
+      break;
+    case 7:
+      tp->x = min_x;
+      tp->y = min_y;
+      tp->x_size = ghost_size;
+      tp->y_size = max_y-min_y;
+      break;
+  }
+  tp->z = 0;
+  tp->z_size = z_size;
 }

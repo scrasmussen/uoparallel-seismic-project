@@ -20,4 +20,20 @@ int main()
     for(i = 0; i < 8; ++i){
         printf("%d Neighbor for %d: %d\n", i, my_rank, mpifindneighborrank(my_rank, i, width) );
     }
+    printf("\n");
+
+    struct TempPoint tp;
+    for(i = 0; i < 8; ++i){
+      mpigetsendcoordinates(i, 7, 1, 1, 125, 125, 51, &tp);
+      printf("Send coordinates for %d: %d, %d, %d \t %d, %d, %d\n", i, tp.x, tp.y, tp.z, tp.x_size, tp.y_size, tp.z_size);
+    }
+    printf("\n");
+
+    for(i = 0; i < 8; ++i){
+      mpigetreceivecoordinates(i, 7, 1, 1, 125, 125, 51, &tp);
+      printf("Receive coordinates for %d: %d, %d, %d \t %d, %d, %d\n", i, tp.x, tp.y, tp.z, tp.x_size, tp.y_size, tp.z_size);
+    }
+    printf("\n");
+
+
 }
