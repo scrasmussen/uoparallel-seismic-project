@@ -243,7 +243,7 @@ MPI_Type_commit(&starttype); */
 if(taskid==0){
 printf("\ntask number : %d \n", taskid);
   //vfile = fopen(argv[1],"r");
-  vfile = fopen("./mpi/shortest-path/velocity-241-241-51.txt","r");
+  vfile = fopen("../docs/velocity-241-241-51.txt","r");
   if(vfile == NULL) {
     printf("Cannot open velocity model file: %s\n", argv[1]);
     exit(1);
@@ -252,7 +252,7 @@ printf("\ntask number : %d \n", taskid);
 
   /* open forward star offset file */
   //fsfile = fopen(argv[2],"r");
-  fsfile = fopen("./mpi/shortest-path/818-FS.txt","r");
+  fsfile = fopen("../docs/818-FS.txt","r");
   if(fsfile == NULL) {
     printf("Cannot open forward star offset file: %s\n", argv[2]);
     exit(1);
@@ -261,7 +261,7 @@ printf("\ntask number : %d \n", taskid);
 
   /* open file with starting points */
   //startfile = fopen(argv[3],"r");
-  startfile = fopen("./mpi/shortest-path/start-4.txt","r");
+  startfile = fopen("../docs/start-4.txt","r");
   if(startfile == NULL) {
     printf("Cannot open starting points file: %s\n", argv[4]);
     exit(1);
