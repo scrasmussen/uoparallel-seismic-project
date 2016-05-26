@@ -16,6 +16,9 @@
 //   * friendly error messages to stderr
 //   * friendly metadata printing: see vboxfprint(..)
 //
+// limitations:
+//   * IEEE 754 single precision float ONLY
+//
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -76,6 +79,7 @@ struct VELOCITYBOX {
 
 struct VBOXOPENFILE {
     FILE *file;    // if non-NULL, then assume file is successfully open
+    long datapos;  // file position of start of float field
     int is_little_endian;
     struct POINT3D min, dims;
     uint32_t checksum;
@@ -111,6 +115,26 @@ vboxinit (
     point3dset( &vbox->max, 0, 0 ,0 );
 
     boxinit( &vbox->box );
+}
+
+
+int
+vboxalloc (
+    struct VELOCITYBOX *vbox,
+    int ox, int oy, int oz,
+    int nx, int ny, int nz
+)
+// allocates and initializes a new VELOCITYBOX
+// on error: returns 0 (failure to allocate memory)
+// on success: returns non-zero
+// note: you should use vboxfree(&vbox) when you're done with it.
+{
+    if( !boxalloc( &vbox->box, nx, ny, nz ) ) return 0;
+
+    point3dset( &vbox->min, ox, oy, oz );
+    point3dset( &vbox->max, ox + nx - 1, oy + ny - 1, oz + nz - 1 );
+
+    return 1;
 }
 
 
@@ -154,17 +178,19 @@ vboxloadtext (
         return 0;
     }
 
+    // will receive coordinates of origin
+    int ox, oy, oz;
+
+    // will receive size of volume
+    int nx, ny, nz;
+
     // read first line to get (x,y,z) of first velocity
-    {
-        int x, y, z;
-        if( 3 != fscanf( infile, "%d,%d,%d", &x, &y, &z ) ) {
-            // error
-            fprintf( stderr, "%s: error reading first line from file %s\n",
-                fn, filename );
-            fclose( infile );
-            return 0;
-        }
-        point3dset( &vbox->min, x, y, z );
+    if( 3 != fscanf( infile, "%d,%d,%d", &ox, &oy, &oz ) ) {
+        // error
+        fprintf( stderr, "%s: error reading first line from file %s\n",
+            fn, filename );
+        fclose( infile );
+        return 0;
     }
 
     // read last line to get (x,y,z) of last velocity;
@@ -205,12 +231,10 @@ vboxloadtext (
             fclose( infile );
             return 0;
         }
-        point3dset( &vbox->max, x, y, z );
 
-        int nx, ny, nz;
-        nx = vbox->max.x - vbox->min.x + 1;
-        ny = vbox->max.y - vbox->min.y + 1;
-        nz = vbox->max.z - vbox->min.z + 1;
+        nx = x - ox + 1;
+        ny = y - oy + 1;
+        nz = z - oz + 1;
 
         if( nx <= 0 || ny <= 0 || nz <= 0 ) {
             // dimensions are nonsense
@@ -220,9 +244,9 @@ vboxloadtext (
             return 0;
         }
 
-        if( !boxalloc( &(vbox->box), nx, ny, nz ) ) {
+        if( !vboxalloc( vbox, ox, oy, oz, nx, ny, nz ) ) {
             // couldn't allocate memory for floatbox
-            fprintf( stderr, "%s: unable to allocate memory for a FLOATBOX with"
+            fprintf( stderr, "%s: unable to allocate memory for a VELOCITYBOX with"
                 "dimension: %d x %d x %d\n", fn, nx, ny, nz );
             fclose( infile );
             return 0;
@@ -643,6 +667,7 @@ vboxopenbinary (
 
     // as appropriate, store metadata from header
     vbfile->file = infile;
+    vbfile->datapos = ftell( infile );
     point3dset( &vbfile->min, ox, oy, oz );
     point3dset( &vbfile->dims, nx, ny, nz );
     vbfile->checksum = checksum;
@@ -683,14 +708,20 @@ vboxloadbinary (
     // open file and read header
     if( !vboxopenbinary( &vbfile, filename ) ) return 0;
 
-    // prepare FLOATBOX to store the contents of the file
-    if( !boxalloc( &vbox->box, vbfile.dims.x, vbfile.dims.y, vbfile.dims.z ) ) {
-        fprintf( stderr, "%s: unable to allocate memory for a FLOATBOX with"
+    // prepare VELOCITYBOX to store the contents of the file
+    if (
+        !vboxalloc (
+            vbox,
+            vbfile.min.x, vbfile.min.y, vbfile.min.z,
+            vbfile.dims.x, vbfile.dims.y, vbfile.dims.z
+        )
+    ) {
+        fprintf( stderr, "%s: unable to allocate memory for a VELOCITYBOX with"
             "dimension: %d x %d x %d\n", fn, vbfile.dims.x, vbfile.dims.y, vbfile.dims.z );
         vboxclosebinary( &vbfile );
         return 0;
     }
-
+    
     // this union lets us keep track of checksums and do endianness conversion
     union VBOX4BYTES fb;
 
@@ -759,50 +790,133 @@ vboxloadbinary (
         }
     }
 
-    // set volume metadata in vbox
-    vbox->min = vbfile.min;
-    point3dset(
-        &vbox->max,
-        vbfile.min.x + vbfile.dims.x - 1,
-        vbfile.min.y + vbfile.dims.y - 1,
-        vbfile.min.z + vbfile.dims.z - 1
-    );
-    
     // success
     return 1;
 }
 
-/*
+
 int
 vboxloadbinarysubset (
-    struct VELOCITYBOX *vbox,
-    const char *filename,
-
+    struct VELOCITYBOX *vbox,        // will be prepared by this function
+    const int ox, const int oy, const int oz,   // origin of subset within file
+    const int nx, const int ny, const int nz,   // size of subset
+    const struct VBOXOPENFILE vbfile // must already be open: this function doesn't close it!
 )
-// see VBOXFORAT.txt
-// on error: returns 0
-// on success: returns non-zero
+// on error: returns 0 (either i/o error or allocation failure or something out-of-bounds)
+// on success: returns non-0
+// note: remember to close vbfile when you're done with it!
 {
+    const long valsize = sizeof(*vbox->box.flat);
     const char *fn = "vboxloadbinarysubset";
 
     if( vbox == NULL ) return 0;
+    if( vbfile.file == NULL ) {
+        fprintf( stderr, "%s: error: source file parameter is not open\n", fn );
+        return 0;
+    }
 
-    // file metadata
-    int little_endian;
-    struct POINT3D boxmin, boxsize;
-    uint32_t checksum;
+    // check bounds
+    if (
+        ox < vbfile.min.x || oy < vbfile.min.y || oz < vbfile.min.z ||
+        nx > vbfile.dims.x - (ox - vbfile.min.x) ||
+        ny > vbfile.dims.y - (oy - vbfile.min.y) ||
+        nz > vbfile.dims.z - (oz - vbfile.min.z)
+    ) {
+        fprintf (
+            stderr, "%s: error: file %s doesn't contain the requested subset!\n"
+            "file: (%d,%d,%d) to (%d,%d,%d)\n"
+            "requested subset: (%d,%d,%d) to (%d,%d,%d)\n",
+            fn, vbfile.filename,
+            vbfile.min.x, vbfile.min.y, vbfile.min.z,
+            vbfile.min.x + vbfile.dims.x - 1,
+            vbfile.min.y + vbfile.dims.y - 1,
+            vbfile.min.z + vbfile.dims.z - 1,
+            ox, oy, oz, ox + nx - 1, oy + ny - 1, oz + nz - 1
+        );
+        return 0;
+    }
 
-    // open file and read header
-    FILE *infile = vboxopenbinary (
-        &little_endian,
-        &boxmin,
-        &boxsize,
-        &checksum,
-        filename
-    );
-    if( infile == NULL ) return 0;
+    // prepare vbox
+    if ( !vboxalloc( vbox, ox, oy, oz, nx, ny, nz ) ) {
+        fprintf(
+            stderr, "%s: unable to allocate memory for a VELOCITYBOX with"
+            "dimension: %d x %d x %d\n", fn, vbfile.dims.x, vbfile.dims.y, vbfile.dims.z
+        );
+        return 0;
+    }
+
+    // compute file strides (long because fseek uses long)
+    long stridez = 1 * valsize; // if you change this, you'll need to add an fseek below
+    long stridey = vbfile.dims.z * stridez;
+    long stridex = vbfile.dims.y * stridey;
+
+    // this union lets us keep track of checksums and do endianness conversion
+    union VBOX4BYTES fb;
+
+    // checksum dummy: since we're not reading the whole file, we can't use the checksum
+    uint32_t dummy;
+
+    // use different read function depending on machine endianness
+    if( vbfile.is_little_endian ) {
+        // little-endian: must use vboxread4bytes(..)
+        for( int x = 0; x < nx; x++ ) {
+            for( int y = 0; y < ny; y++ ) {
+                // seek to beginning of this z-strip in the file
+                fseek (
+                    vbfile.file,
+                    vbfile.datapos +
+                    (x + ox) * stridex +
+                    (y + oy) * stridey +
+                    (0 + oz) * stridez,
+                    SEEK_SET
+                );
+                // read one z-strip
+                for( int z = 0; z < nz; z++ ) {
+                    if( !vboxread4bytes( fn, vbfile.file, vbfile.filename, &fb, &dummy ) ) {
+                        fprintf( stderr, "%s: error reading value at byte position %zu"
+                            " in %s\n", fn, ftell( vbfile.file ), vbfile.filename );
+                        vboxfree( vbox );
+                        return 0;
+                    }
+                    boxput( vbox->box, x, y, z, fb.f32 ); 
+                    // assume file position was advanced exactly enough for one z
+                }
+            }
+        }
+    }
+    else {
+        // big-endian: must use vboxread4bytesreversed(..)
+        for( int x = 0; x < nx; x++ ) {
+            for( int y = 0; y < ny; y++ ) {
+                // seek to beginning of this z-strip in the file
+                fseek (
+                    vbfile.file,
+                    vbfile.datapos +
+                    (x + ox) * stridex +
+                    (y + oy) * stridey +
+                    (0 + oz) * stridez,
+                    SEEK_SET
+                );
+                // read one z-strip
+                for( int z = 0; z < nz; z++ ) {
+                    if( !vboxread4bytesreversed( fn, vbfile.file, vbfile.filename, &fb, &dummy ) ) {
+                        fprintf( stderr, "%s: error reading value at byte position %zu"
+                            " in %s\n", fn, ftell( vbfile.file ), vbfile.filename );
+                        vboxfree( vbox );
+                        return 0;
+                    }
+                    boxput( vbox->box, x, y, z, fb.f32 ); 
+                    // assume file position was advanced exactly enough for one z
+                }
+            }
+        }
+
+    }
+
+    // success
+    return 1;
 }
-*/
+
 
 void
 vboxfprint (
