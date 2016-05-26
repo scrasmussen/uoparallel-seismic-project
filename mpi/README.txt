@@ -1,6 +1,7 @@
-===IMPORTANT=== 
+===IMPORTANT===
 If the current directory is somewhere other than $HOME/uoparallel-seismic-project/mpi you will need
 to edit the DIR varialbe in run.sh to point where the mpi directory is.
+===============
 
 run.sh : this file allocates compute node from aciss and run it by mpirun.This file does not need to be executed.
 
