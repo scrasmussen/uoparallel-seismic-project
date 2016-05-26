@@ -1,4 +1,4 @@
-CC = gcc
+CC = mpicc
 CFLAGS = -O3
 
 all: sweep-tt-multistart
