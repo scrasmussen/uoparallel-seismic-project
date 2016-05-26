@@ -27,6 +27,7 @@
 
 #include "floatbox.h"
 
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -64,8 +65,8 @@ vboxinit (
 int
 vboxalloc (
     struct VELOCITYBOX *vbox,
-    int ox, int oy, int oz,
-    int nx, int ny, int nz
+    const int ox, const int oy, const int oz,
+    const int nx, const int ny, const int nz
 )
 // allocates and initializes a new VELOCITYBOX
 // on error: returns 0 (failure to allocate memory)

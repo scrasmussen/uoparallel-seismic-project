@@ -2,7 +2,7 @@
 // A working example of all the functions in ../include/iovelocity.h,
 // and shows how to get and put values from the VELOCITYBOX (through its FLOATBOX).
 
-#include "../include/iovelocity.h" /* also includes ../include/floatbox.h */
+#include "../include/velocityboxfiler.h" /* also includes ../include/floatbox.h */
 
 #include <stdio.h> /* for stdout, not necessary otherwise */
 
@@ -20,7 +20,7 @@ int main()
 
     // load a text-format velocity file
     printf( "loading old velocity model %s...", text_velocity_file ); fflush( stdout );
-    if( !vboxloadtext( &vbox, text_velocity_file ) ) { /* handle error */ }
+    if( !vbfileloadtext( &vbox, text_velocity_file ) ) { /* handle error */ }
     printf( " done.\n" ); fflush( stdout );
 
     // print the old vbox metadata
@@ -41,7 +41,7 @@ int main()
     
     // write modified vbox to new file using new vbox file format
     printf( "storing modified velocity model %s...", vbox_output_file ); fflush( stdout );
-    if( !vboxstorebinary( vbox_output_file, vbox ) ) { /* handle error */ }
+    if( !vbfilestorebinary( vbox_output_file, vbox ) ) { /* handle error */ }
     printf( " done.\n" ); fflush( stdout );
 
     // free heap memory used by the velocity box
@@ -53,7 +53,7 @@ int main()
 
     // load the vbox file we just created
     printf( "loading modified velocity model %s...", vbox_output_file); fflush( stdout );
-    if( !vboxloadbinary( &vbox, vbox_output_file ) ) { /* handle error */ }
+    if( !vbfileloadbinary( &vbox, vbox_output_file ) ) { /* handle error */ }
     printf( " done.\n" ); fflush( stdout );
 
     // print the new vbox metadata
@@ -73,7 +73,7 @@ int main()
 
     // open (don't read whole file yet)
     printf( "opening modified velocity model %s...", vbox_output_file); fflush( stdout );
-    if( !vboxopenbinary( &vbfile, vbox_output_file ) ) { /* handle error */ }
+    if( !vbfileopenbinary( &vbfile, vbox_output_file ) ) { /* handle error */ }
     printf( " done.\n" ); fflush( stdout );
 
     // display info about the file
@@ -92,7 +92,10 @@ int main()
     printf( "subset size: (%d, %d, %d)\n", nx, ny, nz );
 
     // load a subset of the file into a VELOCITYBOX
-    if( !vboxloadbinarysubset( &vbox, ox, oy, oz, nx, ny, nz, vbfile ) ) { /* handle error */ }
+    if( !vbfileloadbinarysubset( &vbox, ox, oy, oz, nx, ny, nz, vbfile ) ) { /* handle error */ }
+
+    // close the open vbfile
+    vbfileclosebinary( &vbfile );
 
     // display value we changed before
     printf( "in loaded subset: value at (%d, %d, %d) = %g\n",
