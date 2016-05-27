@@ -10,10 +10,23 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-struct TempPoint{
-  int x, y, z;
-  int x_size, y_size, z_size;
-};
+#include "point3d.h"
+
+void
+mpicalculatemycoordinates (
+    struct POINT3D *min,
+    struct POINT3D *dims,
+    int my_rank,
+    int total_nodes,
+    struct POINT3D src_min,
+    struct POINT3D src_dims
+)
+// returns the global coordinates for a particular rank
+// assumes z is depth
+// assumes total_nodes is power of 2
+{
+
+}
 
 int
 mpifindneighborrank (
@@ -64,139 +77,142 @@ mpifindneighborrank (
 
 void
 mpigetsendcoordinates(
+    struct POINT3D *min,
+    struct POINT3D *dims,
     int ghost_id,       // see ^Ghost cell ids
     int ghost_size,      // probably want 7
     int min_x,
     int min_y,
     int max_x,
     int max_y,
-    int z_size,
-    struct TempPoint *tp
+    int z
 )
-// returns send coordinates for a given ghost cell and size
+// returns send coordinates for a given ghost cell and dims
 {
-  if( tp == 0 ) return;
+  if( min == 0 ) return;
+  if( dims == 0 ) return;
 
   switch (ghost_id) {
     case 0:
-      tp->x = min_x-ghost_size;
-      tp->y = min_y-ghost_size;
-      tp->x_size = ghost_size;
-      tp->y_size = ghost_size;
+      min->x = min_x-ghost_size;
+      min->y = min_y-ghost_size;
+      dims->x = ghost_size;
+      dims->y = ghost_size;
       break;
     case 1:
-      tp->x = min_x;
-      tp->y = min_y-ghost_size;
-      tp->x_size = max_x-min_x;
-      tp->y_size = ghost_size;
+      min->x = min_x;
+      min->y = min_y-ghost_size;
+      dims->x = max_x-min_x;
+      dims->y = ghost_size;
       break;
     case 2:
-      tp->x = max_x;
-      tp->y = min_y-ghost_size;
-      tp->x_size = ghost_size;
-      tp->y_size = ghost_size;
+      min->x = max_x;
+      min->y = min_y-ghost_size;
+      dims->x = ghost_size;
+      dims->y = ghost_size;
       break;
     case 3:
-      tp->x = max_x;
-      tp->y = min_y;
-      tp->x_size = ghost_size;
-      tp->y_size = max_y-min_y;
+      min->x = max_x;
+      min->y = min_y;
+      dims->x = ghost_size;
+      dims->y = max_y-min_y;
       break;
     case 4:
-      tp->x = max_x;
-      tp->y = max_y;
-      tp->x_size = ghost_size;
-      tp->y_size = ghost_size;
+      min->x = max_x;
+      min->y = max_y;
+      dims->x = ghost_size;
+      dims->y = ghost_size;
       break;
     case 5:
-      tp->x = min_x;
-      tp->y = max_y;
-      tp->x_size = max_x-min_x;
-      tp->y_size = ghost_size;
+      min->x = min_x;
+      min->y = max_y;
+      dims->x = max_x-min_x;
+      dims->y = ghost_size;
       break;
     case 6:
-      tp->x = min_x-ghost_size;
-      tp->y = max_y;
-      tp->x_size = ghost_size;
-      tp->y_size = ghost_size;
+      min->x = min_x-ghost_size;
+      min->y = max_y;
+      dims->x = ghost_size;
+      dims->y = ghost_size;
       break;
     case 7:
-      tp->x = min_x-ghost_size;
-      tp->y = min_y;
-      tp->x_size = ghost_size;
-      tp->y_size = max_y-min_y;
+      min->x = min_x-ghost_size;
+      min->y = min_y;
+      dims->x = ghost_size;
+      dims->y = max_y-min_y;
       break;
   }
-  tp->z = 0;
-  tp->z_size = z_size;
+  min->z = 0;
+  dims->z = z;
 }
 
 
 void
 mpigetreceivecoordinates(
+    struct POINT3D *min,
+    struct POINT3D *dims,
     int ghost_id,       // see ^Ghost cell ids
     int ghost_size,      // probably want 7
     int min_x,
     int min_y,
     int max_x,
     int max_y,
-    int z_size,
-    struct TempPoint *tp
+    int z
 )
-// returns receive coordinates for a given ghost cell and size
+// returns receive coordinates for a given ghost cell and dims
 {
-  if( tp == 0 ) return;
+  if( min == 0 ) return;
 
   switch (ghost_id) {
     case 0:
-      tp->x = min_x;
-      tp->y = min_y;
-      tp->x_size = ghost_size;
-      tp->y_size = ghost_size;
+      min->x = min_x;
+      min->y = min_y;
+      dims->x = ghost_size;
+      dims->y = ghost_size;
       break;
     case 1:
-      tp->x = min_x;
-      tp->y = min_y;
-      tp->x_size = max_x-min_x;
-      tp->y_size = ghost_size;
+      min->x = min_x;
+      min->y = min_y;
+      dims->x = max_x-min_x;
+      dims->y = ghost_size;
       break;
     case 2:
-      tp->x = max_x-ghost_size;
-      tp->y = min_y;
-      tp->x_size = ghost_size;
-      tp->y_size = ghost_size;
+      min->x = max_x-ghost_size;
+      min->y = min_y;
+      dims->x = ghost_size;
+      dims->y = ghost_size;
       break;
     case 3:
-      tp->x = max_x-ghost_size;
-      tp->y = min_y;
-      tp->x_size = ghost_size;
-      tp->y_size = max_y-min_y;
+      min->x = max_x-ghost_size;
+      min->y = min_y;
+      dims->x = ghost_size;
+      dims->y = max_y-min_y;
       break;
     case 4:
-      tp->x = max_x-ghost_size;
-      tp->y = max_y-ghost_size;
-      tp->x_size = ghost_size;
-      tp->y_size = ghost_size;
+      min->x = max_x-ghost_size;
+      min->y = max_y-ghost_size;
+      dims->x = ghost_size;
+      dims->y = ghost_size;
       break;
     case 5:
-      tp->x = min_x;
-      tp->y = max_y-ghost_size;
-      tp->x_size = max_x-min_x;
-      tp->y_size = ghost_size;
+      min->x = min_x;
+      min->y = max_y-ghost_size;
+      dims->x = max_x-min_x;
+      dims->y = ghost_size;
       break;
     case 6:
-      tp->x = min_x;
-      tp->y = max_y-ghost_size;
-      tp->x_size = ghost_size;
-      tp->y_size = ghost_size;
+      min->x = min_x;
+      min->y = max_y-ghost_size;
+      dims->x = ghost_size;
+      dims->y = ghost_size;
       break;
     case 7:
-      tp->x = min_x;
-      tp->y = min_y;
-      tp->x_size = ghost_size;
-      tp->y_size = max_y-min_y;
+      min->x = min_x;
+      min->y = min_y;
+      dims->x = ghost_size;
+      dims->y = max_y-min_y;
       break;
   }
-  tp->z = 0;
-  tp->z_size = z_size;
+  min->z = 0;
+  dims->z = z;
 }
