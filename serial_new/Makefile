@@ -1,5 +1,6 @@
 CC ?= cc
 CFLAGS = -O3 -Wfatal-errors
+INCLUDE = -I../include
 DOCS = ../docs
 DATA = ../data
 RM ?= rm
@@ -7,7 +8,7 @@ RM ?= rm
 all: sweep-tt-multistart
 
 sweep-tt-multistart: sweep-tt-multistart.c
-	$(CC) -o sweep-tt-multistart $(CFLAGS) sweep-tt-multistart.c
+	$(CC) -o sweep-tt-multistart $(CFLAGS) sweep-tt-multistart.c $(INCLUDE)
 
 # starting point is 0 based so subtract 1
 run: sweep-tt-multistart
