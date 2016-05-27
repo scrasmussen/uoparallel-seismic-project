@@ -11,6 +11,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "point3d.h"
+#include "splitsquare.h"
 
 void
 mpicalculatemycoordinates (
@@ -25,7 +26,21 @@ mpicalculatemycoordinates (
 // assumes z is depth
 // assumes total_nodes is power of 2
 {
+    int num_x = splitsquare_numx(total_nodes);
+    int num_y = (total_nodes/num_x);
 
+    int dims_x = (src_dims.x/num_x);
+    int dims_y = (src_dims.y/num_y);
+
+    int col_rank = my_rank % num_x;
+    int row_rank = my_rank / num_x;
+
+    min->x = (dims_x * col_rank) + src_min.x;
+    dims->x = col_rank < (num_x - 1) ? dims_x : src_dims.x - (dims_x * (num_x - 1));
+    min->y = (dims_y * row_rank) + src_min.y;
+    dims->y = row_rank < (num_y - 1) ? dims_y : src_dims.y - (dims_y * (num_y - 1));
+    min->z = src_min.z;
+    dims->z = src_dims.z;
 }
 
 int
