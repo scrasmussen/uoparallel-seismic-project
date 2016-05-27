@@ -1,7 +1,7 @@
 // example_floatbox.c - Atlee Brink
 // A working example of all the functions in ../include/floatbox.h
 
-#include "../include/floatbox.h"
+#include "floatbox.h"
 
 #include <stdio.h> /* for printf and stdout, not necessary otherwise */
 

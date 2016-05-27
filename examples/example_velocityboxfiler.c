@@ -2,7 +2,7 @@
 // A working example of all the functions in ../include/iovelocity.h,
 // and shows how to get and put values from the VELOCITYBOX (through its FLOATBOX).
 
-#include "../include/velocityboxfiler.h" /* also includes ../include/floatbox.h */
+#include "velocityboxfiler.h" /* also includes ../include/floatbox.h */
 
 #include <stdio.h> /* for stdout, not necessary otherwise */
 

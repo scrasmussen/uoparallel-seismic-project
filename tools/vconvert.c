@@ -1,7 +1,7 @@
 // vconvert.c - Atlee Brink
 // converts from old velocity file format to new (smaller) file format
 
-#include "../include/iovelocity.h"
+#include "velocityboxfiler.h"
 
 #include <stdio.h>
 
@@ -23,11 +23,11 @@ main (
     struct VELOCITYBOX vbox;
 
     printf( "reading old velocity model %s...", infile ); fflush( stdout );
-    if( !vboxloadtext( &vbox, infile ) ) return 1;
+    if( !vbfileloadtext( &vbox, infile ) ) return 1;
     printf( " done.\n" ); fflush( stdout );
 
     printf( "writing new velocity model %s...", outfile ); fflush( stdout );
-    if( !vboxstorebinary( outfile, vbox ) ) return 1;
+    if( !vbfilestorebinary( outfile, vbox ) ) return 1;
     printf( " done.\n" ); fflush( stdout );
 
     vboxfree( &vbox );
