@@ -14,6 +14,10 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
+// Requires:
+//   ./point3d.h
+//
+//
 // Data:
 //
 //   struct FLOATBOX:
@@ -22,11 +26,14 @@
 //
 // Functions:
 //
+//   void boxinit( struct FLOATBOX* )
+//   void boxvolume( struct FLOATBOX )
 //   int boxalloc( struct FLOATBOX*, int nx, int ny, int nz )
-//   void boxsetall( struct FLOATBOX, float value )
 //   void boxfree( struct FLOATBOX* )
+//   size_t boxindex( struct FLOATBOX, int x, int y, int z )
 //   float boxget( struct FLOATBOX, int x, int y, int z )
 //   void boxput( struct FLOATBOX, int x, int y, int z, float )
+//   void boxsetall( struct FLOATBOX, float value )
 //   void boxfprint( FILE*, char *prefix, char *indent, struct FLOATBOX )
 //
 //
@@ -53,6 +60,8 @@
 // includes
 ////////////////////////////////////////////////////////////////////////////////
 
+#include "point3d.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -62,8 +71,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 struct FLOATBOX {
-    size_t sx, sy, sz; // array strides
-    int nx, ny, nz; // dimensions
+    size_t sx, sy, sz; // array strides in 'flat'
+    struct POINT3D size; // (x,y,z) dimensions
     float *flat; // [x][y][z] order
 };
 
@@ -84,40 +93,42 @@ boxinit (
     box->sy = 0;
     box->sz = 0;
 
-    box->nx = 0;
-    box->ny = 0;
-    box->nz = 0;
+    point3dset( &box->size, 0, 0, 0 );
 
     box->flat = NULL;
+}
+
+
+inline extern
+size_t
+boxvolume (
+    struct FLOATBOX box
+)
+// computes and returns the total volume of the box
+{
+    return (size_t)box.size.x * box.size.y * box.size.z;
 }
 
 
 int
 boxalloc (
     struct FLOATBOX *box,
-    int nx,
-    int ny,
-    int nz
+    int nx, int ny, int nz
 )
 // allocates box->flat and sets strides and dimensions appropriately;
-// on error: returns 0
+// on error: returns 0 (failure to allocate memory)
 // on success: returns non-zero
 {
-    size_t numbytes = (size_t)nx * ny * nz * sizeof(float);
+    size_t numbytes = (nx * ny * nz) * sizeof(float);
     float *flat = malloc( numbytes );
 
-    if( flat == NULL ) {
-        // system couldn't allocate the memory
-        return 0;
-    }
+    if( flat == NULL ) return 0;
 
     box->sx = (size_t)ny * nz;
     box->sy = nz;
     box->sz = 1;
 
-    box->nx = nx;
-    box->ny = ny;
-    box->nz = nz;
+    point3dset( &box->size, nx, ny, nz );
 
     box->flat = flat;
 
@@ -132,6 +143,7 @@ boxfree (
 // releases heap memory associated with box
 {
     if( box == NULL ) return;
+    point3dset( &box->size, 0, 0, 0 );
     free( box->flat );
     box->flat = NULL;
 }
@@ -141,9 +153,7 @@ inline extern
 size_t
 boxindex (
     struct FLOATBOX box,
-    int x,
-    int y,
-    int z
+    int x, int y, int z
 )
 // return an index into box.flat corresponding to the given coordinates
 {
@@ -155,9 +165,7 @@ inline extern
 float
 boxget (
     struct FLOATBOX box,
-    int x,
-    int y,
-    int z
+    int x, int y, int z
 )
 // returns a single value from the given coordinates
 {
@@ -169,9 +177,7 @@ inline extern
 void
 boxput (
     struct FLOATBOX box,
-    int x,
-    int y,
-    int z,
+    int x, int y, int z,
     float val
 )
 // stores a single value at the given coordinates
@@ -188,8 +194,8 @@ boxsetall (
 // sets ALL values in the volume to the given value
 {
     if( box.flat == NULL ) return;
-    size_t i, last = boxindex( box, box.nx-1, box.ny-1, box.nz-1 );
-    for( i = 0; i <= last; i++ ) box.flat[i] = val;
+    size_t i;
+    for( i = boxvolume( box ); i-- > 0; box.flat[i] = val );
 }
 
 void
@@ -206,10 +212,10 @@ boxfprint (
     if( indent == NULL ) indent = "  ";
 
     fprintf( stream, "%sFLOATBOX {\n", prefix );
-    fprintf( stream, "%s%ssx: %zu, sy: %zu, sz %zu\n",
+    fprintf( stream, "%s%sstrides: (%zu, %zu, %zu)\n",
         prefix, indent, box.sx, box.sy, box.sz );
-    fprintf( stream, "%s%snx: %d, ny: %d, nz: %d\n",
-        prefix, indent, box.nx, box.ny, box.nz );
+    fprintf( stream, "%s%ssize: (%d, %d, %d)\n",
+        prefix, indent, box.size.x, box.size.y, box.size.z );
     fprintf( stream, "%s%sflat: %p\n",
         prefix, indent, (void*)box.flat );
     fprintf( stream, "%s}\n", prefix );

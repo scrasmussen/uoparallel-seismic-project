@@ -32,7 +32,7 @@
 /* (Note, the program currently exits before this is done.)			*/
 /********************************************************************************/
 
-#include "../include/iovelocity.h"
+#include "velocityboxfiler.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -60,7 +60,6 @@ struct START {			/* starting point */
 int		changed[STARTMAX];
 
 struct FS	fs[FSMAX];
-//struct MODEL	model[MODELMAX][MODELMAX][MODELMAX];
 struct START	start[STARTMAX];
 
 struct VELOCITYBOX vbox; // stores JUST velocities
@@ -79,14 +78,13 @@ int main(int argc, char* argv[]) {
 
   /* open velocity model file */
   printf( "Loading velocity model file: %s...", velocity_model_file ); fflush( stdout );
-  if( !vboxloadbinary( &vbox, velocity_model_file ) ) {
-  //if( !vboxloadtext( &vbox, velocity_model_file ) ) {
+  if( !vbfileloadbinary( &vbox, velocity_model_file ) ) {
     printf( "Cannot open velocity model file: %s\n", velocity_model_file );
     exit(1);
   }
-  nx = vbox.box.nx;
-  ny = vbox.box.ny;
-  nz = vbox.box.nz;
+  nx = vbox.box.size.x;
+  ny = vbox.box.size.y;
+  nz = vbox.box.size.z;
   printf( " done.\n" ); fflush( stdout );
   printf( "Velocity model dimensions: %d x %d x %d\n", nx, ny, nz );
 
@@ -167,7 +165,7 @@ int main(int argc, char* argv[]) {
     }
     printf("sweep %d finished: anychange = %d\n", numsweeps, anychange);
 
-    // temporary: break after one sweep, record results, quit
+    // TODO: remove next line: TEMPORARY break after one sweep, record results, quit
     break;
   }
 

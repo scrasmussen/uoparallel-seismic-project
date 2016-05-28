@@ -11,6 +11,21 @@ int main()
     int width = 2;
     int i = 0;
 
+    struct POINT3D src_min;
+    point3dset(&src_min, 1, 1, 1);
+    struct POINT3D src_dims;
+    point3dset(&src_dims, 241, 241, 51);
+    struct POINT3D min;
+    struct POINT3D dims;
+
+    for(i = 0; i < 8; ++i){
+        mpicalculatemycoordinates(&min, &dims, i, 8, src_min, src_dims);
+        printf("%d min - %d, %d, %d\n", i, min.x, min.y, min.z);
+        printf("%d dims - %d, %d, %d\n", i, dims.x, dims.y, dims.z);
+    }
+    printf("\n");
+
+
     for(i = 0; i < 8; ++i){
         printf("%d Neighbor for %d: %d\n", i, my_rank, mpifindneighborrank(my_rank, i, width) );
     }
@@ -22,16 +37,15 @@ int main()
     }
     printf("\n");
 
-    struct TempPoint tp;
     for(i = 0; i < 8; ++i){
-      mpigetsendcoordinates(i, 7, 1, 1, 125, 125, 51, &tp);
-      printf("Send coordinates for %d: %d, %d, %d \t %d, %d, %d\n", i, tp.x, tp.y, tp.z, tp.x_size, tp.y_size, tp.z_size);
+      mpigetsendcoordinates(&min, &dims, i, 7, 1, 1, 125, 125, 51);
+      printf("Send coordinates for %d: %d, %d, %d \t %d, %d, %d\n", i, min.x, min.y, min.z, dims.x, dims.y, dims.z);
     }
     printf("\n");
 
     for(i = 0; i < 8; ++i){
-      mpigetreceivecoordinates(i, 7, 1, 1, 125, 125, 51, &tp);
-      printf("Receive coordinates for %d: %d, %d, %d \t %d, %d, %d\n", i, tp.x, tp.y, tp.z, tp.x_size, tp.y_size, tp.z_size);
+      mpigetreceivecoordinates(&min, &dims, i, 7, 1, 1, 125, 125, 51);
+      printf("Receive coordinates for %d: %d, %d, %d \t %d, %d, %d\n", i, min.x, min.y, min.z, dims.x, dims.y, dims.z);
     }
     printf("\n");
 
